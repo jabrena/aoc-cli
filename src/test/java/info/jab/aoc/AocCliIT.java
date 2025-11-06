@@ -45,7 +45,7 @@ class AocCliIT {
             }
         };
         AocClient client = new AocClient("test_session_cookie", baseUrl);
-        aocCli = new AocCli(resolver, client, baseUrl);
+        aocCli = new AocCli(resolver, client);
 
         // Capture output
         originalOut = System.out;
@@ -234,8 +234,8 @@ class AocCliIT {
                 throw new IllegalArgumentException("No API key found");
             }
         };
-        // Client is null because resolver will fail - getAocClient() will throw when called
-        AocCli failingCli = new AocCli(failingResolver, null, baseUrl);
+        // Client is null because resolver will fail - will throw when used
+        AocCli failingCli = new AocCli(failingResolver, null);
 
         // When
         CommandLine cmd = new CommandLine(failingCli);
@@ -432,8 +432,8 @@ class AocCliIT {
                 throw new IllegalArgumentException("No API key found");
             }
         };
-        // Client is null because resolver will fail - getAocClient() will throw when called
-        AocCli failingCli = new AocCli(failingResolver, null, baseUrl);
+        // Client is null because resolver will fail - will throw when used
+        AocCli failingCli = new AocCli(failingResolver, null);
 
         // When
         CommandLine cmd = new CommandLine(failingCli);
@@ -702,8 +702,8 @@ class AocCliIT {
                 throw new IllegalArgumentException("No API key found");
             }
         };
-        // Client is null because resolver will fail - getAocClient() will throw when called
-        AocCli failingCli = new AocCli(failingResolver, null, baseUrl);
+        // Client is null because resolver will fail - will throw when used
+        AocCli failingCli = new AocCli(failingResolver, null);
 
         // When
         CommandLine cmd = new CommandLine(failingCli);

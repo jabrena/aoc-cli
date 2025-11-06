@@ -30,7 +30,6 @@ public class AocCli implements Callable<Integer> {
 
     AOCApiKeyResolver apiKeyResolver;
     AocClient aocClient; // Injected AocClient instance
-    String baseUrl; // For testing - if null, uses default AOC URL
 
     public AocCli() {
         AOCApiKeyResolver resolver = new AOCApiKeyResolver();
@@ -38,14 +37,12 @@ public class AocCli implements Callable<Integer> {
         AocClient client = new AocClient(cookie, AOC_BASE_URL);
         this.apiKeyResolver = resolver;
         this.aocClient = client;
-        this.baseUrl = AOC_BASE_URL;
     }
 
     // Package-private constructor for testing with injected AocClient
-    AocCli(AOCApiKeyResolver apiKeyResolver, AocClient aocClient, String baseUrl) {
+    AocCli(AOCApiKeyResolver apiKeyResolver, AocClient aocClient) {
         this.apiKeyResolver = apiKeyResolver;
         this.aocClient = aocClient;
-        this.baseUrl = baseUrl;
     }
 
     public static void main(String[] args) {
