@@ -21,18 +21,25 @@ public class AocClient {
 
     private final HttpClient httpClient;
     private final String sessionCookie;
+    private final String baseUrl;
 
     public AocClient(String sessionCookie) {
+        this(sessionCookie, AOC_BASE_URL);
+    }
+
+    // Public constructor for testing with custom base URL
+    public AocClient(String sessionCookie, String baseUrl) {
         if (sessionCookie == null || sessionCookie.trim().isEmpty()) {
             throw new IllegalArgumentException("Session cookie cannot be null or empty");
         }
         this.httpClient = HttpClient.newBuilder().build();
         this.sessionCookie = sessionCookie.trim();
+        this.baseUrl = baseUrl != null ? baseUrl : AOC_BASE_URL;
     }
 
     public boolean testAuthentication() throws IOException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(AOC_BASE_URL + "/settings"))
+                .uri(URI.create(baseUrl + "/settings"))
                 .header("Cookie", "session=" + sessionCookie)
                 .header("User-Agent", USER_AGENT)
                 .GET()
@@ -53,7 +60,7 @@ public class AocClient {
 
     public String getUsername() throws IOException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(AOC_BASE_URL + "/settings"))
+                .uri(URI.create(baseUrl + "/settings"))
                 .header("Cookie", "session=" + sessionCookie)
                 .header("User-Agent", USER_AGENT)
                 .GET()
@@ -78,7 +85,7 @@ public class AocClient {
 
     public String downloadInput(int year, int day) throws IOException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("%s/%d/day/%d/input", AOC_BASE_URL, year, day)))
+                .uri(URI.create(String.format("%s/%d/day/%d/input", baseUrl, year, day)))
                 .header("Cookie", "session=" + sessionCookie)
                 .header("User-Agent", USER_AGENT)
                 .GET()
@@ -114,7 +121,7 @@ public class AocClient {
         String formData = "level=" + part + "&answer=" + java.net.URLEncoder.encode(answer, java.nio.charset.StandardCharsets.UTF_8);
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("%s/%d/day/%d/answer", AOC_BASE_URL, year, day)))
+                .uri(URI.create(String.format("%s/%d/day/%d/answer", baseUrl, year, day)))
                 .header("Cookie", "session=" + sessionCookie)
                 .header("User-Agent", USER_AGENT)
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -137,14 +144,14 @@ public class AocClient {
                 return SubmissionResult.CORRECT;
             } else if (body.contains("That's not the right answer")) {
                 String message = extractMessage(body, "That's not the right answer");
-                return new SubmissionResult(SubmissionResult.Status.WRONG, message, body);
+                return new SubmissionResult(SubmissionStatus.WRONG, message, body);
             } else if (body.contains("You gave an answer too recently")) {
                 String message = extractMessage(body, "You gave an answer too recently");
-                return new SubmissionResult(SubmissionResult.Status.TOO_RECENT, message, body);
+                return new SubmissionResult(SubmissionStatus.TOO_RECENT, message, body);
             } else if (body.contains("already complete")) {
                 return SubmissionResult.ALREADY_COMPLETE;
             } else {
-                return new SubmissionResult(SubmissionResult.Status.UNKNOWN, "Unknown response", body);
+                return new SubmissionResult(SubmissionStatus.UNKNOWN, "Unknown response", body);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -386,7 +393,7 @@ public class AocClient {
 
     public String getProblemStatement(int year, int day) throws IOException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("%s/%d/day/%d", AOC_BASE_URL, year, day)))
+                .uri(URI.create(String.format("%s/%d/day/%d", baseUrl, year, day)))
                 .header("Cookie", "session=" + sessionCookie)
                 .header("User-Agent", USER_AGENT)
                 .GET()
@@ -473,7 +480,7 @@ public class AocClient {
 
     private String getYearPage(int year) throws IOException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("%s/%d", AOC_BASE_URL, year)))
+                .uri(URI.create(String.format("%s/%d", baseUrl, year)))
                 .header("Cookie", "session=" + sessionCookie)
                 .header("User-Agent", USER_AGENT)
                 .GET()
@@ -496,45 +503,5 @@ public class AocClient {
         }
     }
 
-    public static class SubmissionResult {
-        private final Status status;
-        private final String message;
-        private final String fullResponse;
-
-        public SubmissionResult(Status status, String message, String fullResponse) {
-            this.status = status;
-            this.message = message;
-            this.fullResponse = fullResponse;
-        }
-
-        public Status getStatus() {
-            return status;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public String getFullResponse() {
-            return fullResponse;
-        }
-
-        // Backward compatibility methods
-        public static final SubmissionResult CORRECT = new SubmissionResult(Status.CORRECT, "That's the right answer!", "");
-        public static final SubmissionResult ALREADY_COMPLETE = new SubmissionResult(Status.ALREADY_COMPLETE, "Already complete", "");
-
-        @Override
-        public String toString() {
-            return status + (message.isEmpty() ? "" : ": " + message);
-        }
-
-        public enum Status {
-            CORRECT,
-            WRONG,
-            TOO_RECENT,
-            ALREADY_COMPLETE,
-            UNKNOWN
-        }
-    }
 }
 
