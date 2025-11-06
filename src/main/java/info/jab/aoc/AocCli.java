@@ -9,28 +9,43 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import info.jab.aoc.client.AocClient;
+import info.jab.aoc.client.SubmissionResult;
+import info.jab.aoc.client.SubmissionStatus;
 import info.jab.aoc.util.AOCApiKeyResolver;
 
 /**
  * Command Line Interface for Advent of Code authentication and interaction
  */
 @Command(
-    name = "aoc", 
-    mixinStandardHelpOptions = true, 
+    name = "aoc",
+    mixinStandardHelpOptions = true,
     version = "AOC CLI 1.0",
     description = "Advent of Code authentication and interaction tool")
 public class AocCli implements Callable<Integer> {
 
-    @Option(names = {"-c", "--cookie"}, description = "Session cookie")
-    private String sessionCookie;
-
     @Option(names = {"-v", "--verbose"}, description = "Verbose output")
     private boolean verbose;
 
+    private static final String AOC_BASE_URL = "https://adventofcode.com";
+
     AOCApiKeyResolver apiKeyResolver;
+    AocClient aocClient; // Injected AocClient instance
+    String baseUrl; // For testing - if null, uses default AOC URL
 
     public AocCli() {
-        this.apiKeyResolver = new AOCApiKeyResolver();
+        AOCApiKeyResolver resolver = new AOCApiKeyResolver();
+        String cookie = resolver.resolveApiKey(); // Precondition: must succeed, throws IllegalArgumentException if fails
+        AocClient client = new AocClient(cookie, AOC_BASE_URL);
+        this.apiKeyResolver = resolver;
+        this.aocClient = client;
+        this.baseUrl = AOC_BASE_URL;
+    }
+
+    // Package-private constructor for testing with injected AocClient
+    AocCli(AOCApiKeyResolver apiKeyResolver, AocClient aocClient, String baseUrl) {
+        this.apiKeyResolver = apiKeyResolver;
+        this.aocClient = aocClient;
+        this.baseUrl = baseUrl;
     }
 
     public static void main(String[] args) {
@@ -45,16 +60,13 @@ public class AocCli implements Callable<Integer> {
     }
 
     @Command(name = "test", description = "Test authentication")
-    public int test(@Option(names = {"-c", "--cookie"}, description = "Session cookie") String cookie) {
+    public int test() {
         try {
-            String cookieToUse = cookie != null ? cookie : apiKeyResolver.resolveApiKey();
-            AocClient client = new AocClient(cookieToUse);
-
             printInfo("Testing authentication...");
 
-            if (client.testAuthentication()) {
+            if (aocClient.testAuthentication()) {
                 printSuccess("Authentication successful!");
-                String username = client.getUsername();
+                String username = aocClient.getUsername();
                 if (!"Unknown".equals(username)) {
                     printInfo("Logged in as: " + username);
                 }
@@ -76,12 +88,9 @@ public class AocCli implements Callable<Integer> {
     public int input(@Parameters(index = "0", description = "Year") int year,
                      @Parameters(index = "1", description = "Day") int day) {
         try {
-            String cookie = sessionCookie != null ? sessionCookie : apiKeyResolver.resolveApiKey();
-            AocClient client = new AocClient(cookie);
-
             printInfo(String.format("Downloading input for %d day %d...", year, day));
 
-            String input = client.downloadInput(year, day);
+            String input = aocClient.downloadInput(year, day);
             System.out.println(input);
 
             printSuccess("Input downloaded successfully");
@@ -102,12 +111,9 @@ public class AocCli implements Callable<Integer> {
                       @Parameters(index = "2", description = "Part (1 or 2)") int part,
                       @Parameters(index = "3", description = "Answer") String answer) {
         try {
-            String cookie = sessionCookie != null ? sessionCookie : apiKeyResolver.resolveApiKey();
-            AocClient client = new AocClient(cookie);
-
             printInfo(String.format("Submitting answer for %d day %d part %d: %s", year, day, part, answer));
 
-            AocClient.SubmissionResult result = client.submitAnswer(year, day, part, answer);
+            SubmissionResult result = aocClient.submitAnswer(year, day, part, answer);
 
             switch (result.getStatus()) {
                 case CORRECT:
@@ -140,7 +146,7 @@ public class AocCli implements Callable<Integer> {
                     break;
             }
 
-            return result.getStatus() == AocClient.SubmissionResult.Status.CORRECT ? 0 : 1;
+            return result.getStatus() == SubmissionStatus.CORRECT ? 0 : 1;
 
         } catch (Exception e) {
             printError("Failed to submit answer: " + e.getMessage());
@@ -154,12 +160,9 @@ public class AocCli implements Callable<Integer> {
     @Command(name = "stats", description = "Get personal stats for year")
     public int stats(@Parameters(index = "0", description = "Year") int year) {
         try {
-            String cookie = sessionCookie != null ? sessionCookie : apiKeyResolver.resolveApiKey();
-            AocClient client = new AocClient(cookie);
-
             printInfo(String.format("Getting personal stats for %d...", year));
 
-            int completed = client.getCompletedDaysCount(year);
+            int completed = aocClient.getCompletedDaysCount(year);
             printSuccess(String.format("Year %d: %d days completed", year, completed));
 
             return 0;
@@ -176,14 +179,11 @@ public class AocCli implements Callable<Integer> {
     @Command(name = "pending", description = "List pending years (no args) or pending parts for specific year (with year arg)")
     public int pending(@Parameters(index = "0", description = "Year (optional)", arity = "0..1") Integer year) {
         try {
-            String cookie = sessionCookie != null ? sessionCookie : apiKeyResolver.resolveApiKey();
-            AocClient client = new AocClient(cookie);
-
             if (year == null) {
                 // No year provided - show pending years
                 printInfo("Getting years with pending work...");
 
-                List<Integer> pendingYears = client.getPendingYears();
+                List<Integer> pendingYears = aocClient.getPendingYears();
 
                 if (pendingYears.isEmpty()) {
                     printSuccess("All years completed! 🎉");
@@ -198,7 +198,7 @@ public class AocCli implements Callable<Integer> {
                 // Year provided - show pending parts for that year
                 printInfo(String.format("Getting pending parts for %d...", year));
 
-                List<String> pendingParts = client.getPendingParts(year);
+                List<String> pendingParts = aocClient.getPendingParts(year);
 
                 if (pendingParts.isEmpty()) {
                     printSuccess("All parts completed for " + year + "!");
@@ -223,12 +223,9 @@ public class AocCli implements Callable<Integer> {
     public int problem(@Parameters(index = "0", description = "Year") int year,
                        @Parameters(index = "1", description = "Day") int day) {
         try {
-            String cookie = sessionCookie != null ? sessionCookie : apiKeyResolver.resolveApiKey();
-            AocClient client = new AocClient(cookie);
-
             printInfo(String.format("Getting problem statement for %d day %d...", year, day));
 
-            String problemStatement = client.getProblemStatement(year, day);
+            String problemStatement = aocClient.getProblemStatement(year, day);
             System.out.println(problemStatement);
 
             printSuccess("Problem statement retrieved successfully");

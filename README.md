@@ -1,29 +1,20 @@
 # AOC CLI
 
-## AOC CLI
-
-Java CLI to interact with Advent of Code (AoC) programmatically. The CLI handles authentication, input downloading, answer submission, and stats checking.
+A Java CLI to interact with Advent of Code (AoC) programmatically. The CLI handles authentication, input downloading, answer submission, and stats checking.
 
 ```bash
 ./mvnw clean verify
 ```
 
-### First-time setup (authentication)
+### Setup
 
-Use the `setup` command to store your AoC session cookie in a local file `.aoc_session`.
-
-```bash
-./mvnw compile exec:java -pl churrera/aoc-client -Dexec.args="setup"
-```
-
-Or manually get your session cookie:
 - Go to https://adventofcode.com and log in
 - Open browser developer tools (F12)
 - Go to Application/Storage → Cookies → https://adventofcode.com
 - Copy the value of the `session` cookie
-- Store value in `.aoc_session` file or set `AOC_SESSION_COOKIE` environment variable
+- Store the value in `.env` with the key `AOC_API_KEY=xxx` or set environment variable `AOC_API_KEY`
 
-### Cli Usage
+### Usage
 
 ```bash
 ./mvnw clean verify

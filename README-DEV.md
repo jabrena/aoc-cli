@@ -22,6 +22,11 @@
 # Run integration tests
 ./mvnw clean verify
 
+./mvnw clean verify -Pjacoco
+
+# Record real AOC API responses for integration tests (requires AOC_API_KEY)
+./mvnw exec:java -Pe2e
+
 # Check for dependency updates
 ./mvnw versions:display-property-updates
 ./mvnw versions:display-dependency-updates
