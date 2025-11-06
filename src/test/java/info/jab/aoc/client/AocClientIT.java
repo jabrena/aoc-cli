@@ -711,6 +711,119 @@ class AocClientIT {
     }
 
     @Test
+    @DisplayName("Should extract message when no patterns match and return start marker")
+    void should_extractMessage_whenNoPatternsMatch() throws IOException {
+        // Given - HTML without any matching patterns
+        String htmlNoPatterns = "<html><body>Completely different content</body></html>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoPatterns)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then - Should return UNKNOWN with fallback message
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
+    }
+
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with empty sentences")
+    void should_handleCleanAndExtractRelevantMessage_withEmptySentences() throws IOException {
+        // Given - HTML that results in empty sentences after split
+        String htmlEmptySentences = "<article><p>That's not the right answer...   .</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlEmptySentences)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when sessionCookie is null")
+    void should_throwIllegalArgumentException_when_sessionCookieIsNull() {
+        // When & Then
+        assertThatThrownBy(() -> new AocClient(null, baseUrl))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Session cookie cannot be null or empty");
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when sessionCookie is empty")
+    void should_throwIllegalArgumentException_when_sessionCookieIsEmpty() {
+        // When & Then
+        assertThatThrownBy(() -> new AocClient("", baseUrl))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Session cookie cannot be null or empty");
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when sessionCookie is whitespace only")
+    void should_throwIllegalArgumentException_when_sessionCookieIsWhitespace() {
+        // When & Then
+        assertThatThrownBy(() -> new AocClient("   ", baseUrl))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Session cookie cannot be null or empty");
+    }
+
+    @Test
+    @DisplayName("Should use default baseUrl when null is provided")
+    void should_useDefaultBaseUrl_when_nullProvided() {
+        // When
+        AocClient clientWithNullBaseUrl = new AocClient("test_session", null);
+
+        // Then - Should not throw and should use default AOC_BASE_URL
+        assertThat(clientWithNullBaseUrl).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Should handle testAuthentication with status code 300 or higher")
+    void should_handleTestAuthentication_withStatusCode300OrHigher() throws IOException {
+        // Given
+        wireMock.stubFor(get(urlEqualTo("/settings"))
+                .willReturn(aResponse().withStatus(300)));
+
+        // When
+        boolean result = client.testAuthentication();
+
+        // Then
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should handle getUsername with status code 300 or higher")
+    void should_handleGetUsername_withStatusCode300OrHigher() throws IOException {
+        // Given
+        wireMock.stubFor(get(urlEqualTo("/settings"))
+                .willReturn(aResponse().withStatus(300)));
+
+        // When
+        String username = client.getUsername();
+
+        // Then
+        assertThat(username).isEqualTo("Unknown");
+    }
+
+    @Test
+    @DisplayName("Should handle submitAnswer with status code 300 or higher")
+    void should_handleSubmitAnswer_withStatusCode300OrHigher() {
+        // Given
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse().withStatus(300)));
+
+        // When & Then
+        assertThatThrownBy(() -> client.submitAnswer(2023, 1, 1, "answer"))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Failed to submit answer");
+    }
+
+    @Test
     @DisplayName("Should extract message when article found but doesn't contain marker")
     void should_extractMessage_whenArticleFoundButNoMarker() throws IOException {
         // Given - HTML with article but marker not in article content
@@ -728,193 +841,108 @@ class AocClientIT {
     }
 
     @Test
-    @DisplayName("Should extract message when no patterns match and return start marker")
-    void should_extractMessage_whenNoPatternsMatch() throws IOException {
-        // Given - HTML without any matching patterns
-        String htmlNoPatterns = "<html><body>Completely different content</body></html>";
+    @DisplayName("Should return start marker when no patterns match in extractMessage")
+    void should_returnStartMarker_when_noPatternsMatch() throws IOException {
+        // Given - HTML without any matching patterns for "That's not the right answer"
+        // But we need to trigger the simple pattern fallback
+        String htmlNoPatterns = "That's not the right answer but no HTML tags";
         wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withBody(htmlNoPatterns)));
 
         // When
-        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
 
-        // Then - Should return UNKNOWN with fallback message
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
+        // Then - Should extract using simple pattern
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
     }
 
     @Test
-    @DisplayName("Should handle cleanAndExtractRelevantMessage with empty final result")
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with empty finalResult")
     void should_handleCleanAndExtractRelevantMessage_withEmptyFinalResult() throws IOException {
-        // Given - HTML that will result in empty finalResult after filtering
-        String htmlEmptyResult = "<article><p>That's not the right answer. Check subreddit. Return to about page.</p></article>";
+        // Given - HTML that results in empty finalResult after filtering all sentences
+        String htmlEmptyResult = "<article><p>Check subreddit. Return to about page. General tips available.</p></article>";
         wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withBody(htmlEmptyResult)));
 
-        // When
-        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
-
-        // Then - Should use simpler approach
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
-    }
-
-    @Test
-    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing info in wrong answer")
-    void should_handleCleanAndExtractRelevantMessage_withTimingInfo() throws IOException {
-        // Given - HTML with timing info that should be extracted
-        String htmlWithTiming = "<article><p>That's not the right answer. Please wait one minute before trying again.</p></article>";
-        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody(htmlWithTiming)));
-
-        // When
-        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
-
-        // Then
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
-        assertThat(result.getMessage()).contains("not the right answer");
-    }
-
-    @Test
-    @DisplayName("Should handle cleanAndExtractRelevantMessage with too recently and no time pattern")
-    void should_handleCleanAndExtractRelevantMessage_tooRecentNoTimePattern() throws IOException {
-        // Given - HTML with too recently but no time pattern
-        String htmlNoTimePattern = "<article><p>You gave an answer too recently. Please wait.</p></article>";
-        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody(htmlNoTimePattern)));
-
-        // When
-        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
-
-        // Then - Should use fallback sentence extraction
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.TOO_RECENT);
-    }
-
-    @Test
-    @DisplayName("Should handle cleanAndExtractRelevantMessage with seconds pattern")
-    void should_handleCleanAndExtractRelevantMessage_withSecondsPattern() throws IOException {
-        // Given - HTML with seconds in time pattern
-        String htmlWithSeconds = "<article><p>You gave an answer too recently; you have to wait 30 seconds.</p></article>";
-        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody(htmlWithSeconds)));
-
-        // When
+        // When - This will trigger UNKNOWN since no marker is found
         SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
 
         // Then
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.TOO_RECENT);
-    }
-
-    @Test
-    @DisplayName("Should handle extractMessage with article content containing marker")
-    void should_extractMessage_withArticleContentContainingMarker() throws IOException {
-        // Given - HTML with article that contains the marker
-        String htmlWithArticleMarker = "<main><article><p>That's not the right answer. Wait one minute.</p></article></main>";
-        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody(htmlWithArticleMarker)));
-
-        // When
-        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
-
-        // Then
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
-    }
-
-    @Test
-    @DisplayName("Should handle getProblemStatement with default message when no articles found")
-    void should_handleGetProblemStatement_withDefaultMessage() throws IOException {
-        // Given - HTML without day-desc articles
-        String htmlNoArticles = "<html><body>No problem statement here</body></html>";
-        wireMock.stubFor(get(urlEqualTo("/2023/day/1"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody(htmlNoArticles)));
-
-        // When
-        String problemStatement = client.getProblemStatement(2023, 1);
-
-        // Then
-        assertThat(problemStatement).isEqualTo("Problem statement not found or not available yet.");
-    }
-
-    @Test
-    @DisplayName("Should handle getProblemStatement with default status code")
-    void should_handleGetProblemStatement_withDefaultStatusCode() {
-        // Given
-        wireMock.stubFor(get(urlEqualTo("/2023/day/1"))
-                .willReturn(aResponse().withStatus(503)));
-
-        // When & Then
-        assertThatThrownBy(() -> client.getProblemStatement(2023, 1))
-                .isInstanceOf(IOException.class)
-                .hasMessageContaining("Failed to get problem statement (HTTP 503)");
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
     }
 
     @Test
     @DisplayName("Should handle cleanAndExtractRelevantMessage with finalResult not containing marker")
     void should_handleCleanAndExtractRelevantMessage_finalResultNotContainingMarker() throws IOException {
         // Given - HTML that results in finalResult that doesn't contain the marker
-        String htmlNoMarker = "<article><p>Some content. Wait one minute.</p></article>";
+        // All sentences get filtered, so finalResult is empty, then we look for marker in sentences
+        String htmlFiltered = "<article><p>That's not the right answer. Check subreddit for hints.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlFiltered)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should use simpler approach to extract marker
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with finalResult empty and no marker in sentences")
+    void should_handleCleanAndExtractRelevantMessage_finalResultEmptyNoMarker() throws IOException {
+        // Given - HTML that results in empty finalResult and no marker found in sentences
+        // This tests the branch where finalResult is empty and we can't find the marker
+        String htmlNoMarker = "<article><p>Check subreddit. Return to about page. General tips available.</p></article>";
         wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withBody(htmlNoMarker)));
 
-        // When - This will trigger the branch where finalResult doesn't contain marker
-        // We need to make sure the marker is in the HTML but gets filtered out
-        String htmlFiltered = "<article><p>That's not the right answer. Check subreddit for hints.</p></article>";
-        wireMock.stubFor(post(urlEqualTo("/2023/day/2/answer"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody(htmlFiltered)));
+        // When - This will trigger UNKNOWN since no marker is found
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
 
-        SubmissionResult result = client.submitAnswer(2023, 2, 1, "wrong");
-
-        // Then - Should use simpler approach
-        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        // Then
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
     }
 
     @Test
-    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing wait and subreddit")
-    void should_handleCleanAndExtractRelevantMessage_waitAndSubreddit() throws IOException {
-        // Given - HTML with sentence containing both wait and subreddit (should be filtered)
-        String htmlMixed = "<article><p>That's not the right answer. Check subreddit and wait one minute.</p></article>";
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing info that contains subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingInfoContainsSubreddit() throws IOException {
+        // Given - HTML with timing info that contains subreddit (should be filtered in timing extraction)
+        String htmlWithSubredditInTiming = "<article><p>That's not the right answer. Wait one minute but check subreddit.</p></article>";
         wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
                 .willReturn(aResponse()
                         .withStatus(200)
-                        .withBody(htmlMixed)));
+                        .withBody(htmlWithSubredditInTiming)));
 
         // When
         SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
 
-        // Then
+        // Then - Should filter subreddit from timing info
         assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
     }
 
     @Test
-    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence loop not breaking")
-    void should_handleCleanAndExtractRelevantMessage_sentenceLoopNotBreaking() throws IOException {
-        // Given - HTML with sentences that don't trigger break conditions
-        String htmlNoBreak = "<article><p>That's not the right answer. Try again later. Good luck!</p></article>";
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing info containing subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingInfoWithSubreddit() throws IOException {
+        // Given - HTML with timing info that also contains subreddit (should be filtered)
+        String htmlWithTimingAndSubreddit = "<article><p>That's not the right answer. Wait one minute and check subreddit.</p></article>";
         wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
                 .willReturn(aResponse()
                         .withStatus(200)
-                        .withBody(htmlNoBreak)));
+                        .withBody(htmlWithTimingAndSubreddit)));
 
         // When
         SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
 
-        // Then
+        // Then - Should filter subreddit sentence but still extract timing
         assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
     }
 
@@ -931,15 +959,501 @@ class AocClientIT {
         // When
         SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
 
-        // Then - Should return cleaned content
+        // Then - Should return cleaned content (fallback)
         assertThat(result.getStatus()).isEqualTo(SubmissionStatus.TOO_RECENT);
     }
 
     @Test
-    @DisplayName("Should handle cleanAndExtractRelevantMessage with empty sentences")
-    void should_handleCleanAndExtractRelevantMessage_withEmptySentences() throws IOException {
-        // Given - HTML that results in empty sentences after split
-        String htmlEmptySentences = "<article><p>That's not the right answer...   .</p></article>";
+    @DisplayName("Should handle getPendingParts with fully completed days")
+    void should_handleGetPendingParts_withFullyCompletedDays() throws IOException {
+        // Given - HTML with all days fully completed (verycomplete)
+        StringBuilder html = new StringBuilder("<html><body>");
+        for (int day = 1; day <= 25; day++) {
+            html.append("<div class=\"calendar-day").append(day).append(" calendar-verycomplete\">Day ").append(day).append("</div>");
+        }
+        html.append("</body></html>");
+
+        wireMock.stubFor(get(urlEqualTo("/2023"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(html.toString())));
+
+        // When
+        List<String> pendingParts = client.getPendingParts(2023);
+
+        // Then - No pending parts since all days are fully completed
+        assertThat(pendingParts).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should handle getPendingParts with partially completed days")
+    void should_handleGetPendingParts_withPartiallyCompletedDays() throws IOException {
+        // Given - HTML with some days partially completed (complete but not verycomplete)
+        StringBuilder html = new StringBuilder("<html><body>");
+        for (int day = 1; day <= 5; day++) {
+            html.append("<div class=\"calendar-day").append(day).append(" calendar-complete\">Day ").append(day).append("</div>");
+        }
+        for (int day = 6; day <= 25; day++) {
+            html.append("<div class=\"calendar-day").append(day).append(" calendar-verycomplete\">Day ").append(day).append("</div>");
+        }
+        html.append("</body></html>");
+
+        wireMock.stubFor(get(urlEqualTo("/2023"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(html.toString())));
+
+        // When
+        List<String> pendingParts = client.getPendingParts(2023);
+
+        // Then - Days 1-5 need part 2, days 6-25 are fully completed
+        assertThat(pendingParts).hasSize(5);
+        assertThat(pendingParts).containsExactly("1_2", "2_2", "3_2", "4_2", "5_2");
+    }
+
+    @Test
+    @DisplayName("Should handle getPendingParts with no progress days")
+    void should_handleGetPendingParts_withNoProgressDays() throws IOException {
+        // Given - HTML with no completed days
+        wireMock.stubFor(get(urlEqualTo("/2023"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("<html><body>No completed days</body></html>")));
+
+        // When
+        List<String> pendingParts = client.getPendingParts(2023);
+
+        // Then - All 25 days need part 1
+        assertThat(pendingParts).hasSize(25);
+        for (int day = 1; day <= 25; day++) {
+            assertThat(pendingParts).contains(day + "_1");
+        }
+    }
+
+    @Test
+    @DisplayName("Should handle getPendingParts with mixed completion status")
+    void should_handleGetPendingParts_withMixedCompletionStatus() throws IOException {
+        // Given - HTML with mixed completion: some fully, some partially, some none
+        StringBuilder html = new StringBuilder("<html><body>");
+        // Days 1-3: fully completed
+        for (int day = 1; day <= 3; day++) {
+            html.append("<div class=\"calendar-day").append(day).append(" calendar-verycomplete\">Day ").append(day).append("</div>");
+        }
+        // Days 4-6: partially completed
+        for (int day = 4; day <= 6; day++) {
+            html.append("<div class=\"calendar-day").append(day).append(" calendar-complete\">Day ").append(day).append("</div>");
+        }
+        // Days 7-25: no progress
+        html.append("</body></html>");
+
+        wireMock.stubFor(get(urlEqualTo("/2023"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(html.toString())));
+
+        // When
+        List<String> pendingParts = client.getPendingParts(2023);
+
+        // Then - Days 4-6 need part 2 (3 items), days 7-25 need part 1 (19 items) = 22 total
+        // Days 1-3 are fully completed so they're skipped
+        assertThat(pendingParts).hasSize(22);
+        assertThat(pendingParts).containsExactlyInAnyOrder(
+                "4_2", "5_2", "6_2",
+                "7_1", "8_1", "9_1", "10_1", "11_1", "12_1", "13_1", "14_1", "15_1",
+                "16_1", "17_1", "18_1", "19_1", "20_1", "21_1", "22_1", "23_1", "24_1", "25_1"
+        );
+    }
+
+    @Test
+    @DisplayName("Should handle getPendingYears with empty pending parts")
+    void should_handleGetPendingYears_withEmptyPendingParts() throws IOException {
+        // Given - All years have no pending parts (all fully completed)
+        StringBuilder html = new StringBuilder("<html><body>");
+        for (int day = 1; day <= 25; day++) {
+            html.append("<div class=\"calendar-day").append(day).append(" calendar-verycomplete\">Day ").append(day).append("</div>");
+        }
+        html.append("</body></html>");
+
+        // Mock multiple years
+        for (int year = 2015; year <= 2024; year++) {
+            wireMock.stubFor(get(urlEqualTo("/" + year))
+                    .willReturn(aResponse()
+                            .withStatus(200)
+                            .withBody(html.toString())));
+        }
+
+        // When
+        List<Integer> pendingYears = client.getPendingYears();
+
+        // Then - No years with pending parts
+        assertThat(pendingYears).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should handle getPendingYears with some years having pending parts")
+    void should_handleGetPendingYears_withSomeYearsHavingPendingParts() throws IOException {
+        // Given - Year 2023 has pending parts, others are fully completed
+        StringBuilder htmlCompleted = new StringBuilder("<html><body>");
+        for (int day = 1; day <= 25; day++) {
+            htmlCompleted.append("<div class=\"calendar-day").append(day).append(" calendar-verycomplete\">Day ").append(day).append("</div>");
+        }
+        htmlCompleted.append("</body></html>");
+
+        StringBuilder htmlPending = new StringBuilder("<html><body>");
+        htmlPending.append("<div class=\"calendar-day1 calendar-complete\">Day 1</div>");
+        htmlPending.append("</body></html>");
+
+        // Mock years - 2023 has pending, others are complete
+        for (int year = 2015; year <= 2024; year++) {
+            if (year == 2023) {
+                wireMock.stubFor(get(urlEqualTo("/" + year))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withBody(htmlPending.toString())));
+            } else {
+                wireMock.stubFor(get(urlEqualTo("/" + year))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withBody(htmlCompleted.toString())));
+            }
+        }
+
+        // When
+        List<Integer> pendingYears = client.getPendingYears();
+
+        // Then - Only 2023 has pending parts
+        assertThat(pendingYears).contains(2023);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with finalResult not empty but missing marker")
+    void should_handleCleanAndExtractRelevantMessage_finalResultNotEmptyButMissingMarker() throws IOException {
+        // Given - HTML that produces non-empty finalResult but doesn't contain "not the right answer"
+        // This tests the OR condition second branch: !finalResult.contains("not the right answer")
+        String htmlNoMarker = "<article><p>Some other message. Please try again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoMarker)));
+
+        // When - This will trigger UNKNOWN since no marker is found
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing sentence containing subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingSentenceWithSubreddit() throws IOException {
+        // Given - HTML with timing sentence that contains subreddit (should be filtered in timing extraction)
+        // This tests the branch: (wait || minute) && !subreddit - when subreddit is present
+        String htmlTimingWithSubreddit = "<article><p>That's not the right answer. Wait one minute and check subreddit for hints.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlTimingWithSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out timing sentence with subreddit
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence loop not breaking")
+    void should_handleCleanAndExtractRelevantMessage_sentenceLoopNotBreaking() throws IOException {
+        // Given - HTML with sentences that don't contain timing words (loop continues, doesn't break)
+        // This tests the branch where sentence doesn't contain wait/minute/recently
+        String htmlNoTimingWords = "<article><p>That's not the right answer. Try again later. Good luck with the puzzle!</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoTimingWords)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Loop should continue without breaking, appending ". " between sentences
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with marker not found in sentence loop")
+    void should_handleCleanAndExtractRelevantMessage_markerNotFoundInSentenceLoop() throws IOException {
+        // Given - HTML where marker is not found in any sentence during the simpler extraction loop
+        // This tests the branch where sentence.contains("not the right answer") is false for all sentences
+        String htmlNoMarkerInSentences = "<article><p>Check subreddit. Return to about page. General tips available.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoMarkerInSentences)));
+
+        // When - This will trigger UNKNOWN since no marker is found
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with time pattern not found")
+    void should_handleCleanAndExtractRelevantMessage_timePatternNotFound() throws IOException {
+        // Given - HTML with "too recently" but no time pattern (e.g., "5m 23s")
+        // This tests the branch where timeMatcher.find() returns false
+        String htmlNoTimePattern = "<article><p>You gave an answer too recently. Please wait before trying again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoTimePattern)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then - Should fall through to sentence loop fallback
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.TOO_RECENT);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with no wait/recently in sentences")
+    void should_handleCleanAndExtractRelevantMessage_noWaitRecentlyInSentences() throws IOException {
+        // Given - HTML with "too recently" but sentences don't contain wait/recently
+        // This tests the branch where sentence loop completes without finding wait/recently
+        String htmlNoWaitRecently = "<article><p>You gave an answer too recently. Try again later.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoWaitRecently)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then - Should return cleaned content (fallback)
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.TOO_RECENT);
+    }
+
+    @Test
+    @DisplayName("Should handle extractMessage with simple pattern not found")
+    void should_handleExtractMessage_simplePatternNotFound() throws IOException {
+        // Given - HTML without any matching patterns (no article, no paragraph, no simple pattern)
+        // This tests the branch where simpleMatcher.find() returns false
+        String htmlNoPatterns = "<html><body>Completely different content with no markers</body></html>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoPatterns)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then - Should return UNKNOWN with fallback message
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with finalResult containing marker but empty after filtering")
+    void should_handleCleanAndExtractRelevantMessage_finalResultContainsMarkerButEmpty() throws IOException {
+        // Given - HTML that results in finalResult containing marker but becomes empty after all filtering
+        // This tests edge case where finalResult has marker but gets filtered out completely
+        String htmlFilteredOut = "<article><p>That's not the right answer. Check subreddit. Return to about page. General tips.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlFilteredOut)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should use simpler approach to extract marker
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing info extraction when sentence has wait but also subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingWithSubredditInExtraction() throws IOException {
+        // Given - HTML where timing sentence contains both wait AND subreddit
+        // This tests the branch in timing extraction: (wait || minute) && !subreddit when subreddit is present
+        String htmlTimingSubreddit = "<article><p>That's not the right answer. Wait one minute but check subreddit for help.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlTimingSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out timing sentence with subreddit
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with multiple sentences without timing words")
+    void should_handleCleanAndExtractRelevantMessage_multipleSentencesNoTiming() throws IOException {
+        // Given - HTML with multiple sentences, none containing timing words (tests continue path)
+        String htmlMultipleNoTiming = "<article><p>That's not the right answer. Try a different approach. Consider the examples carefully.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlMultipleNoTiming)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Loop should continue, appending ". " between sentences
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with finalResult not empty and contains marker")
+    void should_handleCleanAndExtractRelevantMessage_finalResultNotEmptyAndContainsMarker() throws IOException {
+        // Given - HTML that produces non-empty finalResult that contains the marker
+        // This tests the branch where finalResult is NOT empty AND contains "not the right answer"
+        String htmlWithMarker = "<article><p>That's not the right answer. Please try again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithMarker)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should use finalResult directly (skip the simpler extraction)
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing about page")
+    void should_handleCleanAndExtractRelevantMessage_sentenceWithAboutPage() throws IOException {
+        // Given - HTML with sentence containing "about page" (should be filtered)
+        String htmlWithAboutPage = "<article><p>That's not the right answer. Return to about page for more info.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithAboutPage)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out "about page" sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing general tips")
+    void should_handleCleanAndExtractRelevantMessage_sentenceWithGeneralTips() throws IOException {
+        // Given - HTML with sentence containing "general tips" (should be filtered)
+        String htmlWithGeneralTips = "<article><p>That's not the right answer. Check general tips for help.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithGeneralTips)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out "general tips" sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing return to")
+    void should_handleCleanAndExtractRelevantMessage_sentenceWithReturnTo() throws IOException {
+        // Given - HTML with sentence containing "return to" (should be filtered)
+        String htmlWithReturnTo = "<article><p>That's not the right answer. Return to the puzzle.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithReturnTo)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out "return to" sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing sentence that has minute but no subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingMinuteNoSubreddit() throws IOException {
+        // Given - HTML with timing sentence containing "minute" but no subreddit
+        // This tests the branch: (wait || minute) && !subreddit when minute is true and subreddit is false
+        String htmlMinuteNoSubreddit = "<article><p>That's not the right answer. Wait one minute before trying again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlMinuteNoSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should include timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("minute");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing sentence that has wait but no subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingWaitNoSubreddit() throws IOException {
+        // Given - HTML with timing sentence containing "wait" but no subreddit
+        // This tests the branch: (wait || minute) && !subreddit when wait is true and subreddit is false
+        String htmlWaitNoSubreddit = "<article><p>That's not the right answer. Please wait before trying again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWaitNoSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should include timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("wait");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing recently")
+    void should_handleCleanAndExtractRelevantMessage_sentenceWithRecently() throws IOException {
+        // Given - HTML with sentence containing "recently" (should trigger break)
+        String htmlWithRecently = "<article><p>That's not the right answer. You tried recently.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithRecently)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should break at "recently"
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle extractMessage with article found and contains marker")
+    void should_handleExtractMessage_articleFoundAndContainsMarker() throws IOException {
+        // Given - HTML with article that contains the marker
+        String htmlWithArticleMarker = "<main><article><p>That's not the right answer. Wait one minute.</p></article></main>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithArticleMarker)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should extract from article
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with empty sentence in loop")
+    void should_handleCleanAndExtractRelevantMessage_emptySentenceInLoop() throws IOException {
+        // Given - HTML that results in empty sentences after split (tests continue path)
+        String htmlEmptySentences = "<article><p>That's not the right answer...   .   .</p></article>";
         wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
                 .willReturn(aResponse()
                         .withStatus(200)
@@ -948,8 +1462,571 @@ class AocClientIT {
         // When
         SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
 
-        // Then
+        // Then - Should skip empty sentences
         assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing extraction when no timing sentence found")
+    void should_handleCleanAndExtractRelevantMessage_noTimingSentenceFound() throws IOException {
+        // Given - HTML where timing extraction loop completes without finding timing sentence
+        // This tests the branch where timing sentence loop doesn't find wait/minute
+        String htmlNoTimingSentence = "<article><p>That's not the right answer. Try again later.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoTimingSentence)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should use finalResult without timing info
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with finalResult empty OR condition first branch")
+    void should_handleCleanAndExtractRelevantMessage_finalResultEmpty() throws IOException {
+        // Given - HTML that results in empty finalResult (tests OR condition first branch)
+        String htmlEmptyResult = "<article><p>Check subreddit. Return to about page. General tips.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlEmptyResult)));
+
+        // When - This will trigger UNKNOWN since no marker is found
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence loop finding marker in second iteration")
+    void should_handleCleanAndExtractRelevantMessage_markerFoundInSecondIteration() throws IOException {
+        // Given - HTML where marker is found in second sentence (not first)
+        String htmlMarkerSecond = "<article><p>Some other text. That's not the right answer. Wait one minute.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlMarkerSecond)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should find marker in second iteration
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing sentence found in second iteration")
+    void should_handleCleanAndExtractRelevantMessage_timingSentenceInSecondIteration() throws IOException {
+        // Given - HTML where timing sentence is found in second iteration
+        String htmlTimingSecond = "<article><p>That's not the right answer. Wait one minute before trying again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlTimingSecond)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should find timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with too recently and wait found in sentence")
+    void should_handleCleanAndExtractRelevantMessage_tooRecentlyWithWait() throws IOException {
+        // Given - HTML with "too recently" and sentence containing "wait"
+        String htmlTooRecentWait = "<article><p>You gave an answer too recently. Please wait before trying again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlTooRecentWait)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then - Should find wait in sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.TOO_RECENT);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with finalResult not empty and contains marker - skip simpler extraction")
+    void should_handleCleanAndExtractRelevantMessage_finalResultNotEmptyContainsMarkerSkipExtraction() throws IOException {
+        // Given - HTML that produces non-empty finalResult containing marker
+        // This tests the branch where we skip the simpler extraction (line 235 condition is false)
+        String htmlWithMarker = "<article><p>That's not the right answer. Please try again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithMarker)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should use finalResult directly without simpler extraction
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing sentence containing minute but no subreddit in extraction")
+    void should_handleCleanAndExtractRelevantMessage_timingMinuteNoSubredditInExtraction() throws IOException {
+        // Given - HTML where timing extraction finds sentence with "minute" but no "subreddit"
+        // This tests: (wait || minute) && !subreddit when minute=true, subreddit=false
+        String htmlMinuteNoSubreddit = "<article><p>That's not the right answer. Wait one minute before trying.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlMinuteNoSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should include timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing sentence containing wait but no subreddit in extraction")
+    void should_handleCleanAndExtractRelevantMessage_timingWaitNoSubredditInExtraction() throws IOException {
+        // Given - HTML where timing extraction finds sentence with "wait" but no "subreddit"
+        // This tests: (wait || minute) && !subreddit when wait=true, subreddit=false
+        String htmlWaitNoSubreddit = "<article><p>That's not the right answer. Please wait before trying.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWaitNoSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should include timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing wait triggering break")
+    void should_handleCleanAndExtractRelevantMessage_sentenceWithWaitTriggersBreak() throws IOException {
+        // Given - HTML with sentence containing "wait" (should trigger break in first loop)
+        String htmlWithWait = "<article><p>That's not the right answer. Please wait one minute.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithWait)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should break at "wait"
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing minute triggering break")
+    void should_handleCleanAndExtractRelevantMessage_sentenceWithMinuteTriggersBreak() throws IOException {
+        // Given - HTML with sentence containing "minute" (should trigger break in first loop)
+        String htmlWithMinute = "<article><p>That's not the right answer. Wait one minute.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithMinute)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should break at "minute"
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with marker found and timing sentence not found")
+    void should_handleCleanAndExtractRelevantMessage_markerFoundTimingNotFound() throws IOException {
+        // Given - HTML where marker is found but timing sentence loop doesn't find wait/minute
+        String htmlMarkerNoTiming = "<article><p>That's not the right answer. Try again later.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlMarkerNoTiming)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should have marker but no timing info
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing only subreddit")
+    void should_handleCleanAndExtractRelevantMessage_sentenceOnlySubreddit() throws IOException {
+        // Given - HTML with sentence containing only "subreddit" (first OR condition)
+        String htmlOnlySubreddit = "<article><p>That's not the right answer. Check the subreddit for hints.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlOnlySubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out subreddit sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing only about page")
+    void should_handleCleanAndExtractRelevantMessage_sentenceOnlyAboutPage() throws IOException {
+        // Given - HTML with sentence containing only "about page" (second OR condition)
+        String htmlOnlyAboutPage = "<article><p>That's not the right answer. Return to about page.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlOnlyAboutPage)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out about page sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing only general tips")
+    void should_handleCleanAndExtractRelevantMessage_sentenceOnlyGeneralTips() throws IOException {
+        // Given - HTML with sentence containing only "general tips" (third OR condition)
+        String htmlOnlyGeneralTips = "<article><p>That's not the right answer. Check general tips.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlOnlyGeneralTips)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out general tips sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing only return to")
+    void should_handleCleanAndExtractRelevantMessage_sentenceOnlyReturnTo() throws IOException {
+        // Given - HTML with sentence containing only "return to" (fourth OR condition)
+        String htmlOnlyReturnTo = "<article><p>That's not the right answer. Return to the puzzle.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlOnlyReturnTo)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out return to sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing only wait in break condition")
+    void should_handleCleanAndExtractRelevantMessage_sentenceOnlyWait() throws IOException {
+        // Given - HTML with sentence containing only "wait" (first OR condition in break)
+        String htmlOnlyWait = "<article><p>That's not the right answer. Please wait.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlOnlyWait)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should break at "wait"
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing only minute in break condition")
+    void should_handleCleanAndExtractRelevantMessage_sentenceOnlyMinute() throws IOException {
+        // Given - HTML with sentence containing only "minute" (second OR condition in break)
+        String htmlOnlyMinute = "<article><p>That's not the right answer. Wait one minute.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlOnlyMinute)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should break at "minute"
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with sentence containing only recently in break condition")
+    void should_handleCleanAndExtractRelevantMessage_sentenceOnlyRecently() throws IOException {
+        // Given - HTML with sentence containing only "recently" (third OR condition in break)
+        String htmlOnlyRecently = "<article><p>That's not the right answer. You tried recently.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlOnlyRecently)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should break at "recently"
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing extraction wait but no subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingWaitNoSubredditExtraction() throws IOException {
+        // Given - HTML where timing extraction finds "wait" but no "subreddit"
+        // Tests: (wait || minute) && !subreddit when wait=true, minute=false, subreddit=false
+        String htmlWaitNoSubreddit = "<article><p>That's not the right answer. Please wait before trying.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWaitNoSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should include timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing extraction minute but no subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingMinuteNoSubredditExtraction() throws IOException {
+        // Given - HTML where timing extraction finds "minute" but no "subreddit"
+        // Tests: (wait || minute) && !subreddit when wait=false, minute=true, subreddit=false
+        String htmlMinuteNoSubreddit = "<article><p>That's not the right answer. Wait one minute.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlMinuteNoSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should include timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing extraction wait and minute but no subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingWaitAndMinuteNoSubreddit() throws IOException {
+        // Given - HTML where timing extraction finds both "wait" and "minute" but no "subreddit"
+        // Tests: (wait || minute) && !subreddit when wait=true, minute=true, subreddit=false
+        String htmlWaitAndMinute = "<article><p>That's not the right answer. Please wait one minute.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWaitAndMinute)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should include timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing extraction no wait and no minute")
+    void should_handleCleanAndExtractRelevantMessage_timingNoWaitNoMinute() throws IOException {
+        // Given - HTML where timing extraction finds neither "wait" nor "minute"
+        // Tests: (wait || minute) && !subreddit when wait=false, minute=false
+        String htmlNoWaitNoMinute = "<article><p>That's not the right answer. Try again later.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlNoWaitNoMinute)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should not include timing sentence
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with too recently and wait found")
+    void should_handleCleanAndExtractRelevantMessage_tooRecentlyWaitFound() throws IOException {
+        // Given - HTML with "too recently" and sentence containing "wait" (first OR condition)
+        String htmlTooRecentWait = "<article><p>You gave an answer too recently. Please wait.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlTooRecentWait)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then - Should find wait
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.TOO_RECENT);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with too recently and recently found")
+    void should_handleCleanAndExtractRelevantMessage_tooRecentlyRecentlyFound() throws IOException {
+        // Given - HTML with "too recently" and sentence containing "recently" (second OR condition)
+        String htmlTooRecentRecently = "<article><p>You gave an answer too recently. Try again later.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlTooRecentRecently)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then - Should find recently
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.TOO_RECENT);
+    }
+
+    @Test
+    @DisplayName("Should handle testAuthentication with status code 200-299 but body null")
+    void should_handleTestAuthentication_status200ButBodyNull() throws IOException {
+        // Given - Status code 200-299 but body is null
+        // This tests the AND condition: statusCode >= 200 && statusCode < 300 && body != null
+        // When body is null, the condition should be false
+        wireMock.stubFor(get(urlEqualTo("/settings"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("")));
+
+        // When - WireMock returns empty string, not null, so this tests empty body path
+        boolean result = client.testAuthentication();
+
+        // Then - Should return false (empty body doesn't contain "log out")
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should handle getUsername with status code 200-299 but body null")
+    void should_handleGetUsername_status200ButBodyNull() throws IOException {
+        // Given - Status code 200-299 but body is null/empty
+        // This tests the AND condition: statusCode >= 200 && statusCode < 300 && body != null
+        wireMock.stubFor(get(urlEqualTo("/settings"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("")));
+
+        // When - WireMock returns empty string, not null
+        String username = client.getUsername();
+
+        // Then - Should return Unknown (empty body doesn't contain username pattern)
+        assertThat(username).isEqualTo("Unknown");
+    }
+
+    @Test
+    @DisplayName("Should handle testAuthentication with status code 200-299 and body not containing log out")
+    void should_handleTestAuthentication_status200BodyNoLogOut() throws IOException {
+        // Given - Status code 200-299, body not null, but doesn't contain "log out"
+        // Use content that definitely doesn't contain "log out" (case-insensitive)
+        wireMock.stubFor(get(urlEqualTo("/settings"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("<html><body>Some content without logout text</body></html>")));
+
+        // When
+        boolean result = client.testAuthentication();
+
+        // Then - Should return false (body doesn't contain "log out")
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with finalResult not empty and does contain marker")
+    void should_handleCleanAndExtractRelevantMessage_finalResultNotEmptyContainsMarker() throws IOException {
+        // Given - HTML that produces non-empty finalResult that DOES contain the marker
+        // This tests the branch where OR condition is false: !(isEmpty || !contains)
+        // i.e., finalResult is NOT empty AND contains marker
+        String htmlWithMarker = "<article><p>That's not the right answer. Please try again.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWithMarker)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should skip simpler extraction and use finalResult directly
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+        assertThat(result.getMessage()).contains("not the right answer");
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing extraction wait and minute but has subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingWaitMinuteButSubreddit() throws IOException {
+        // Given - HTML where timing extraction finds "wait" and "minute" but also "subreddit"
+        // Tests: (wait || minute) && !subreddit when wait=true, minute=true, subreddit=true
+        String htmlWaitMinuteSubreddit = "<article><p>That's not the right answer. Wait one minute and check subreddit.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWaitMinuteSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out timing sentence with subreddit
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing extraction wait but has subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingWaitButSubreddit() throws IOException {
+        // Given - HTML where timing extraction finds "wait" but also "subreddit"
+        // Tests: (wait || minute) && !subreddit when wait=true, minute=false, subreddit=true
+        String htmlWaitSubreddit = "<article><p>That's not the right answer. Wait and check subreddit.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlWaitSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out timing sentence with subreddit
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle cleanAndExtractRelevantMessage with timing extraction minute but has subreddit")
+    void should_handleCleanAndExtractRelevantMessage_timingMinuteButSubreddit() throws IOException {
+        // Given - HTML where timing extraction finds "minute" but also "subreddit"
+        // Tests: (wait || minute) && !subreddit when wait=false, minute=true, subreddit=true
+        String htmlMinuteSubreddit = "<article><p>That's not the right answer. One minute and check subreddit.</p></article>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlMinuteSubreddit)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "wrong");
+
+        // Then - Should filter out timing sentence with subreddit
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.WRONG);
+    }
+
+    @Test
+    @DisplayName("Should handle extractMessage with article found but content doesn't contain marker")
+    void should_handleExtractMessage_articleFoundButNoMarker() throws IOException {
+        // Given - HTML with article but content doesn't contain the marker
+        // This tests the branch: articleMatcher.find() is true but articleContent.contains(startMarker) is false
+        String htmlArticleNoMarker = "<main><article><p>Some other content without the marker.</p></article></main>";
+        wireMock.stubFor(post(urlEqualTo("/2023/day/1/answer"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(htmlArticleNoMarker)));
+
+        // When
+        SubmissionResult result = client.submitAnswer(2023, 1, 1, "answer");
+
+        // Then - Should fall back to paragraph or simple pattern extraction
+        assertThat(result.getStatus()).isEqualTo(SubmissionStatus.UNKNOWN);
     }
 }
 

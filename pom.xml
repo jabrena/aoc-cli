@@ -37,7 +37,7 @@
     <maven-plugin-build-helper.version>3.6.0</maven-plugin-build-helper.version>
 
     <!-- Quality thresholds -->
-    <coverage.level>60</coverage.level>
+    <coverage.level>70</coverage.level>
   </properties>
 
   <dependencies>

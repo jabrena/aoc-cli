@@ -22,7 +22,7 @@
 # Run integration tests
 ./mvnw clean verify
 
-./mvnw clean verify -Pjacoco
+./mvnw clean test verify -Pjacoco
 
 # Record real AOC API responses for integration tests (requires AOC_API_KEY)
 ./mvnw exec:java -Pe2e
