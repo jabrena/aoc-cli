@@ -21,15 +21,23 @@
 
     <!-- Testing dependencies -->
     <junit-jupiter.version>6.0.1</junit-jupiter.version>
-    <assertj-core.version>3.26.3</assertj-core.version>
+    <assertj-core.version>3.27.6</assertj-core.version>
+    <wiremock.version>3.9.1</wiremock.version>
+    <mockito.version>5.14.2</mockito.version>
 
     <!-- Maven plugin versions -->
-    <maven-plugin-compiler.version>3.13.0</maven-plugin-compiler.version>
+    <maven-plugin-compiler.version>3.14.1</maven-plugin-compiler.version>
     <maven-plugin-surefire.version>3.5.4</maven-plugin-surefire.version>
     <maven-plugin-enforcer.version>3.6.2</maven-plugin-enforcer.version>
-    <extra-enforcer-rules.version>1.10.0</extra-enforcer-rules.version>
+    <extra-enforcer-rules.version>1.11.0</extra-enforcer-rules.version>
     <maven-plugin-versions.version>2.19.1</maven-plugin-versions.version>
     <maven-plugin-shade.version>3.6.1</maven-plugin-shade.version>
+    <maven-plugin-jacoco.version>0.8.13</maven-plugin-jacoco.version>
+    <maven-plugin-failsafe.version>3.5.4</maven-plugin-failsafe.version>
+    <maven-plugin-build-helper.version>3.6.0</maven-plugin-build-helper.version>
+
+    <!-- Quality thresholds -->
+    <coverage.level>70</coverage.level>
   </properties>
 
   <dependencies>
@@ -81,6 +89,26 @@
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
       <version>${assertj-core.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- WireMock for HTTP mocking in integration tests -->
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <version>${wiremock.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Mockito for mocking in unit tests -->
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -142,6 +170,25 @@
           <excludes>
             <exclude>**/*IT.java</exclude>
           </excludes>
+        </configuration>
+      </plugin>
+      <!-- Integration Testing -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>${maven-plugin-failsafe.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <includes>
+            <include>**/*IT.java</include>
+          </includes>
         </configuration>
       </plugin>
       <!-- Package as a single executable JAR -->
@@ -252,4 +299,127 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>jacoco</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>${maven-plugin-jacoco.version}</version>
+            <executions>
+              <execution>
+                <id>prepare-agent</id>
+                <goals>
+                  <goal>prepare-agent</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>report</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>report</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>report-integration</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>report</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>check</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <rule>
+                      <element>BUNDLE</element>
+                      <limits>
+                        <limit>
+                          <counter>LINE</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>${coverage.level}%</minimum>
+                        </limit>
+                        <limit>
+                          <counter>BRANCH</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>${coverage.level}%</minimum>
+                        </limit>
+                        <limit>
+                          <counter>METHOD</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>${coverage.level}%</minimum>
+                        </limit>
+                        <limit>
+                          <counter>CLASS</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>${coverage.level}%</minimum>
+                        </limit>
+                        <limit>
+                          <counter>INSTRUCTION</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>${coverage.level}%</minimum>
+                        </limit>
+                        <limit>
+                          <counter>COMPLEXITY</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>${coverage.level}%</minimum>
+                        </limit>
+                      </limits>
+                    </rule>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>e2e</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>${maven-plugin-build-helper.version}</version>
+            <executions>
+              <execution>
+                <id>add-e2e-source</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/e2e/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.6.2</version>
+            <configuration>
+              <mainClass>info.jab.aoc.util.AocResponseRecorder</mainClass>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

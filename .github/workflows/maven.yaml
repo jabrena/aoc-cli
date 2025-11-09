@@ -16,3 +16,20 @@ jobs:
           java-version: '25'
       - name: Maven build
         run: ./mvnw --batch-mode --no-transfer-progress verify --file pom.xml
+
+      - name: Get Maven project version
+        id: get_version
+        run: echo "VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+
+      - name: Execute AOC Agent
+        run: |
+          export AOC_API_KEY="${{ secrets.AOC_API_KEY }}"
+          echo "Just before Maven execution - AOC_API_KEY is set: $(if [ -n "$AOC_API_KEY" ]; then echo 'YES (length: '${#AOC_API_KEY}')'; else echo 'NO'; fi)"
+          java -jar ./target/aoc-cli-${{ steps.get_version.outputs.VERSION }}.jar test
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v5
+        with:
+          name: aoc-cli-${{ steps.get_version.outputs.VERSION }}.jar
+          path: |
+            ./target/aoc-cli-${{ steps.get_version.outputs.VERSION }}.jar
