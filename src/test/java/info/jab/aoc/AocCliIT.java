@@ -72,7 +72,7 @@ class AocCliIT {
                         .withBodyFile("settings_authenticated.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("test");
 
         // Then
@@ -90,7 +90,7 @@ class AocCliIT {
                         .withBodyFile("input_2023_day1.txt")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("input", "2023", "1");
 
         // Then
@@ -109,7 +109,7 @@ class AocCliIT {
                         .withBodyFile("submit_correct.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("submit", "2023", "1", "1", "12345");
 
         // Then
@@ -127,7 +127,7 @@ class AocCliIT {
                         .withBodyFile("submit_wrong.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("submit", "2023", "1", "1", "wrong");
 
         // Then
@@ -145,7 +145,7 @@ class AocCliIT {
                         .withBodyFile("submit_wrong.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "submit", "2023", "1", "1", "wrong");
 
         // Then
@@ -163,7 +163,7 @@ class AocCliIT {
                         .withBodyFile("year_2023.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("stats", "2023");
 
         // Then
@@ -181,7 +181,7 @@ class AocCliIT {
                         .withBodyFile("year_2023.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("pending");
 
         // Then
@@ -198,7 +198,7 @@ class AocCliIT {
                         .withBodyFile("year_2023.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("pending", "2023");
 
         // Then
@@ -215,7 +215,7 @@ class AocCliIT {
                         .withBodyFile("problem_statement_2023_day1.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("problem", "2023", "1");
 
         // Then
@@ -238,7 +238,7 @@ class AocCliIT {
         AocCli failingCli = new AocCli(failingResolver, null);
 
         // When
-        CommandLine cmd = new CommandLine(failingCli);
+        CommandLine cmd = AocCli.createCommandLine(failingCli);
         int exitCode = cmd.execute("test");
 
         // Then
@@ -256,7 +256,7 @@ class AocCliIT {
                         .withBodyFile("submit_too_recent.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("submit", "2023", "1", "1", "answer");
 
         // Then
@@ -274,7 +274,7 @@ class AocCliIT {
                         .withBodyFile("submit_already_complete.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("submit", "2023", "1", "1", "answer");
 
         // Then
@@ -292,7 +292,7 @@ class AocCliIT {
                         .withBody("<html><body>Unexpected response</body></html>")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("submit", "2023", "1", "1", "answer");
 
         // Then
@@ -310,7 +310,7 @@ class AocCliIT {
                         .withBodyFile("settings_unauthenticated.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("test");
 
         // Then
@@ -328,7 +328,7 @@ class AocCliIT {
                         .withBodyFile("settings_authenticated.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("test");
 
         // Then
@@ -344,7 +344,7 @@ class AocCliIT {
                 .willReturn(aResponse().withStatus(404)));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("input", "2023", "1");
 
         // Then
@@ -360,7 +360,7 @@ class AocCliIT {
                 .willReturn(aResponse().withStatus(404)));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("problem", "2023", "1");
 
         // Then
@@ -376,7 +376,7 @@ class AocCliIT {
                 .willReturn(aResponse().withStatus(500)));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("stats", "2023");
 
         // Then
@@ -394,7 +394,7 @@ class AocCliIT {
                         .withBodyFile("submit_wrong.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "submit", "2023", "1", "1", "wrong");
 
         // Then
@@ -414,7 +414,7 @@ class AocCliIT {
                         .withBodyFile("submit_too_recent.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "submit", "2023", "1", "1", "answer");
 
         // Then
@@ -436,7 +436,7 @@ class AocCliIT {
         AocCli failingCli = new AocCli(failingResolver, null);
 
         // When
-        CommandLine cmd = new CommandLine(failingCli);
+        CommandLine cmd = AocCli.createCommandLine(failingCli);
         int exitCode = cmd.execute("pending");
 
         // Then
@@ -452,7 +452,7 @@ class AocCliIT {
                 .willReturn(aResponse().withStatus(500)));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("pending", "2023");
 
         // Then
@@ -470,7 +470,7 @@ class AocCliIT {
                         .withBody("<html><body>That's the right answer!</body></html>")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "submit", "2023", "1", "1", "correct");
 
         // Then - Should not print full response if empty (CORRECT has empty full response)
@@ -488,7 +488,7 @@ class AocCliIT {
                         .withBody("<html><body>Unexpected response</body></html>")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "submit", "2023", "1", "1", "answer");
 
         // Then
@@ -506,7 +506,7 @@ class AocCliIT {
                         .withBody("<html><body>No username here</body></html>")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("test");
 
         // Then - Should not print username if Unknown
@@ -523,7 +523,7 @@ class AocCliIT {
                         .withBodyFile("settings_authenticated.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("test");
 
         // Then
@@ -541,7 +541,7 @@ class AocCliIT {
                         .withBodyFile("submit_wrong.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "submit", "2023", "1", "1", "wrong");
 
         // Then - Verbose mode should show full response
@@ -559,7 +559,7 @@ class AocCliIT {
                         .withBodyFile("submit_too_recent.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "submit", "2023", "1", "1", "answer");
 
         // Then - Verbose mode should show full response
@@ -577,7 +577,7 @@ class AocCliIT {
                         .withBody("<html><body>Unexpected response with content</body></html>")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "submit", "2023", "1", "1", "answer");
 
         // Then - Verbose mode should show full response
@@ -596,7 +596,7 @@ class AocCliIT {
                         .withBody(allCompleted)));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("pending");
 
         // Then - Should show success message
@@ -618,7 +618,7 @@ class AocCliIT {
                         .withBody(allCompleted.toString())));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("pending", "2023");
 
         // Then - Should show success message
@@ -636,7 +636,7 @@ class AocCliIT {
                         .withBodyFile("year_2023.html")));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("pending", "2023");
 
         // Then - Should output pending parts
@@ -652,7 +652,7 @@ class AocCliIT {
                 .willReturn(aResponse().withStatus(404)));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "input", "2023", "1");
 
         // Then - Verbose mode should print stack trace
@@ -668,7 +668,7 @@ class AocCliIT {
                 .willReturn(aResponse().withStatus(404)));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "problem", "2023", "1");
 
         // Then - Verbose mode should print stack trace
@@ -684,7 +684,7 @@ class AocCliIT {
                 .willReturn(aResponse().withStatus(500)));
 
         // When
-        CommandLine cmd = new CommandLine(aocCli);
+        CommandLine cmd = AocCli.createCommandLine(aocCli);
         int exitCode = cmd.execute("--verbose", "stats", "2023");
 
         // Then - Verbose mode should print stack trace
@@ -706,7 +706,7 @@ class AocCliIT {
         AocCli failingCli = new AocCli(failingResolver, null);
 
         // When
-        CommandLine cmd = new CommandLine(failingCli);
+        CommandLine cmd = AocCli.createCommandLine(failingCli);
         int exitCode = cmd.execute("--verbose", "test");
 
         // Then - Verbose mode should print stack trace
